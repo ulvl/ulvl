@@ -309,7 +309,7 @@ class ULX:
 
       - ``"type"``: The layer's type.
       - ``"columns"``: The number of columns in the tile layer.
-      - ``"meta": The layer's meta variable.
+      - ``"meta"``: The layer's meta variable.
 
     .. note::
 
