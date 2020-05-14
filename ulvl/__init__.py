@@ -516,7 +516,7 @@ class TMX:
             new_d = {}
             for i in d:
                 if d[i] is not None:
-                    new_d[i] = str(d[i])
+                    new_d[i] = d[i]
             return new_d
 
         def get_properties(elem):
