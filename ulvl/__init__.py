@@ -412,20 +412,55 @@ class TMX:
     A class for reading (but not writing) TMX files created by the Tiled
     Map Editor in a generic manner.
 
+    Only map meta-data, basic tile layers (but not group layers or image
+    layers), and object groups are captured.  Captured meta-data is
+    converted to numeric form whenever it is supposed to be.  All other
+    values are left as strings.
+
     Saving in this format is not supported due to its complexity.
+
+    See the TMX format specification for more information on the format
+    itself:
+
+    https://doc.mapeditor.org/en/stable/reference/tmx-map-format/
 
     .. attribute:: meta
 
-       A dictionary of level meta variables obtained from the TMX.  With
-       the exception of properties in property tags with a type
-       specified as int, float, or bool, all of these are all simply
-       captured as strings, or ``None`` when not specified by the TMX.
+       A dictionary of level meta variables obtained from the TMX.  The
+       following meta variables are captured if available:
+
+       - "orientation" (from the <map> tag)
+       - "dictionary" (from the <map> tag)
+       - "width" (from the <map> tag)
+       - "height" (from the <map> tag)
+       - "tilewidth" (from the <map> tag)
+       - "tileheight" (from the <map> tag)
+       - "backgroundcolor" (from the <map> tag)
+       - All custom map properties
 
     .. attribute:: objects
 
        A list of objects in the level as :class:`LevelObject`
        objects.  These are taken from the TMX object tags. Layering of
-       objects is not preserved.
+       objects is not preserved.  Each :class:`LevelObject` object's
+       type becomes, in order of preference: the name of the TMX object,
+       the type of the TMX object, or the name of the TMX object group.
+       Each :class:`LevelObject` object's meta variable is set as a
+       dictionary of values obtained from the TMX.  The following meta
+       variables are captured if available:
+
+       - "color" (from the <objectgroup> tag)
+       - "opacity" (from the <objectgroup> tag)
+       - "offsetx" (from the <objectgroup> tag)
+       - "offsety" (from the <objectgroup> tag)
+       - "x" (from the <object> tag)
+       - "y" (from the <object> tag)
+       - "width" (from the <object> tag)
+       - "height" (from the <object> tag)
+       - "rotation" (from the <object> tag)
+       - "gid" (from the <object> tag)
+       - "visible" (from the <object> tag)
+       - All custom object properties
 
        .. note::
 
@@ -447,9 +482,20 @@ class TMX:
        first tile of the tileset, 2 is the second, and so on.
        For means of simplification and consistency, only one tileset can
        be used per layer and all tile global IDs will be localized based
-       on the tile IDs contained within.  Please use the tileset "name"
-       property to keep track of what tileset is being used for which
-       layer.
+       on the tile IDs contained within.
+
+       Each :class:`TileLayer` object's type becomes the name of the TMX
+       layer.  Each :class:`TileLayer` object's meta variable is set as
+       a dictionary of values obtained from the TMX.  The following meta
+       variables are captured if available:
+
+       - "width" (from the <layer> tag)
+       - "height" (from the <layer> tag)
+       - "opacity" (from the <layer> tag)
+       - "visible" (from the <layer> tag)
+       - "offsetx" (from the <layer> tag)
+       - "offsety" (from the <layer> tag)
+       - All custom layer properties
     """
     def __init__(self):
         self.meta = {}
@@ -466,6 +512,13 @@ class TMX:
         tree = ET.parse(f)
         root = tree.getroot()
 
+        def clean_dict(d):
+            new_d = {}
+            for i in d:
+                if d[i] is not None:
+                    new_d[i] = str(d[i])
+            return new_d
+
         def get_properties(elem):
             properties = {}
             for prop in elem.findall("property"):
@@ -478,19 +531,23 @@ class TMX:
                     elif type_ == "float":
                         value = float(value)
                     elif type_ == "bool":
-                        value = bool(int(value))
+                        value = (value == "true")
                 properties[name] = value
             return properties
 
-        self.meta["orientation"] = root.attrib.get("orientation")
-        self.meta["renderorder"] = root.attrib.get("renderorder")
-        map_width = root.attrib.get("width", 1)
-        columns = int(map_width)
-        self.meta["width"] = map_width
-        self.meta["height"] = root.attrib.get("height")
-        self.meta["tilewidth"] = root.attrib.get("tilewidth")
-        self.meta["tileheight"] = root.attrib.get("tileheight")
-        self.meta["backgroundcolor"] = root.attrib.get("backgroundcolor")
+        maporientation = root.attrib.get("orientation")
+        maprenderorder = root.attrib.get("renderorder")
+        mapwidth = int(root.attrib.get("width", 1))
+        mapheight = int(root.attrib.get("height", 1))
+        maptilewidth = int(root.attrib.get("tilewidth", 16))
+        maptileheight = int(root.attrib.get("tileheight", 16))
+        mapbackgroundcolor = root.attrib.get("backgroundcolor")
+
+        self.meta = clean_dict({
+            "orientation": maporientation, "renderorder": maprenderorder,
+            "width": mapwidth, "height": mapheight, "tilewidth": maptilewidth,
+            "tileheight": maptileheight, "backgroundcolor": mapbackgroundcolor,
+        })
 
         # Check tilesets for fristgid
         firstgids = []
@@ -515,12 +572,20 @@ class TMX:
 
                 if data is not None and encoding is not None:
                     name = child.attrib.get("name")
-                    width = child.attrib.get("width")
-                    height = child.attrib.get("height")
+                    width = int(child.attrib.get("width", mapwidth))
+                    height = int(child.attrib.get("height", mapheight))
                     opacity = child.attrib.get("opacity")
+                    if opacity is not None:
+                        opacity = float(opacity)
                     visible = child.attrib.get("visible")
+                    if visible is not None:
+                        visible = bool(int(visible))
                     offsetx = child.attrib.get("offsetx")
+                    if offsetx is not None:
+                        offsetx = int(offsetx)
                     offsety = child.attrib.get("offsety")
+                    if offsety is not None:
+                        offsety = int(offsety)
                     tiles = data_decode(data, encoding, compression)
 
                     # Clean up tile ID, make it local
@@ -534,34 +599,53 @@ class TMX:
                     for i in range(len(tiles)):
                         tiles[i] = max(0, tiles[i] - diff)
 
-                    meta = {"width": width, "height": height,
-                            "opacity": opacity, "visible": visible,
-                            "offsetx": offsetx, "offsety": offsety}
-                    self.layers.append(TileLayer(name, columns, tiles, meta))
+                    meta = clean_dict({
+                        "width": width, "height": height, "opacity": opacity,
+                        "visible": visible, "offsetx": offsetx,
+                        "offsety": offsety})
+                    self.layers.append(TileLayer(name, width, tiles, meta))
 
             elif child.tag == "objectgroup":
                 gname = child.attrib.get("name")
                 color = child.attrib.get("color")
                 opacity = child.attrib.get("opacity")
+                if opacity is not None:
+                    opacity = float(opacity)
                 offsetx = child.attrib.get("offsetx")
+                if offsetx is not None:
+                    offsetx = int(offsetx)
                 offsety = child.attrib.get("offsety")
+                if offsety is not None:
+                    offsety = int(offsety)
+
                 for ochild in child:
                     if ochild.tag == "object":
                         name = child.attrib.get("name")
                         type_ = child.attrib.get("type")
                         otype = name or type_ or gname
-                        x = ochild.attrib.get("x")
-                        y = ochild.attrib.get("y")
+                        x = int(ochild.attrib.get("x", 0))
+                        y = int(ochild.attrib.get("y", 0))
                         width = ochild.attrib.get("width")
+                        if width is not None:
+                            width = int(width)
                         height = ochild.attrib.get("height")
+                        if height is not None:
+                            height = int(height)
                         rotation = ochild.attrib.get("rotation")
+                        if rotation is not None:
+                            rotation = float(rotation)
                         gid = ochild.attrib.get("gid")
+                        if gid is not None:
+                            gid = int(gid)
                         visible = ochild.attrib.get("visible")
-                        meta = {"color": color, "opacity": opacity,
-                                "offsetx": offsetx, "offsety": offsety, "x": x,
-                                "y": y, "width": width, "height": height,
-                                "rotation": rotation, "gid": gid,
-                                "visible": visible}
+                        if visible is not None:
+                            visible = bool(int(visible))
+                        meta = clean_dict({
+                            "color": color, "opacity": opacity,
+                            "offsetx": offsetx, "offsety": offsety, "x": x,
+                            "y": y, "width": width, "height": height,
+                            "rotation": rotation, "gid": gid,
+                            "visible": visible})
 
                         for pchild in ochild:
                             if pchild.tag == "properties":

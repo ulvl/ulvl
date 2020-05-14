@@ -1,2 +1,7 @@
+include WHATSNEW requirements.txt
 recursive-include doc *
 recursive-include doc-src *
+global-include COPYING COPYING.* LICENSE LICENSES
+global-exclude *~ *.pyc *.pyo
+prune build
+prune dist
