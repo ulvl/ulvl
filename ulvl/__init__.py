@@ -19,7 +19,7 @@ to unify level editing under a simple, universal format.
 """
 
 
-__version__ = "1.0a0"
+__version__ = "1.0"
 __author__ = "Layla Marchant"
 __all__ = ["TileLayer", "LevelObject", "ASCL", "JSL", "ULX", "TMX"]
 
@@ -427,14 +427,29 @@ class TMX:
        objects.  These are taken from the TMX object tags. Layering of
        objects is not preserved.
 
+       .. note::
+
+          Remember that a tile object's origin is in the bottom-center,
+          unlike shape-based objects whose origin is in the top-left.
+          You can find out if an object is a tile object by checking the
+          respective level object's ``meta["gid"]`` after loading.  If
+          this value is not ``None``, the object is a tile object.
+
     .. attribute:: layers
 
        A list oj :class:`TileLayer` objects representing the tile layers
        of the level.  These are taken from the TMX layer tags.  Tile
        flipping and rotation are not supported; attempts to flip or
        rotate tiles will simply be interpreted as completely different
-       tiles.  Tile IDs are also localized so that a tile ID of 1 is the
+       tiles.
+
+       Tile IDs are also localized so that a tile ID of 1 is the
        first tile of the tileset, 2 is the second, and so on.
+       For means of simplification and consistency, only one tileset can
+       be used per layer and all tile global IDs will be localized based
+       on the tile IDs contained within.  Please use the tileset "name"
+       property to keep track of what tileset is being used for which
+       layer.
     """
     def __init__(self):
         self.meta = {}
@@ -474,6 +489,7 @@ class TMX:
         self.meta["width"] = map_width
         self.meta["height"] = root.attrib.get("height")
         self.meta["tilewidth"] = root.attrib.get("tilewidth")
+        self.meta["tileheight"] = root.attrib.get("tileheight")
         self.meta["backgroundcolor"] = root.attrib.get("backgroundcolor")
 
         # Check tilesets for fristgid
@@ -516,7 +532,7 @@ class TMX:
                         else:
                             break
                     for i in range(len(tiles)):
-                        tiles[i] -= diff
+                        tiles[i] = max(0, tiles[i] - diff)
 
                     meta = {"width": width, "height": height,
                             "opacity": opacity, "visible": visible,
@@ -534,18 +550,23 @@ class TMX:
                         name = child.attrib.get("name")
                         type_ = child.attrib.get("type")
                         otype = name or type_ or gname
-                        x = child.attrib.get("x")
-                        y = child.attrib.get("y")
-                        width = child.attrib.get("width")
-                        height = child.attrib.get("height")
-                        rotation = child.attrib.get("rotation")
-                        gid = child.attrib.get("gid")
-                        visible = child.attrib.get("visible")
+                        x = ochild.attrib.get("x")
+                        y = ochild.attrib.get("y")
+                        width = ochild.attrib.get("width")
+                        height = ochild.attrib.get("height")
+                        rotation = ochild.attrib.get("rotation")
+                        gid = ochild.attrib.get("gid")
+                        visible = ochild.attrib.get("visible")
                         meta = {"color": color, "opacity": opacity,
                                 "offsetx": offsetx, "offsety": offsety, "x": x,
                                 "y": y, "width": width, "height": height,
                                 "rotation": rotation, "gid": gid,
                                 "visible": visible}
+
+                        for pchild in ochild:
+                            if pchild.tag == "properties":
+                                meta.update(get_properties(pchild))
+
                         self.objects.append(LevelObject(otype, meta))
 
         return self
