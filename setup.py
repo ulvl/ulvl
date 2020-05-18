@@ -23,7 +23,7 @@ TMX format is also provided, enabling use of Tiled with your game.
 """.strip()
 
 setup(name="ulvl",
-      version="1.0",
+      version="1.1",
       description="Universal level formats library.",
       long_description=long_description,
       author="Layla Marchant",

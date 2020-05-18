@@ -19,8 +19,7 @@ to unify level editing under a simple, universal format.
 """
 
 
-__version__ = "1.0"
-__author__ = "Layla Marchant"
+__version__ = "1.1a0"
 __all__ = ["TileLayer", "LevelObject", "ASCL", "JSL", "ULX", "TMX"]
 
 
@@ -459,6 +458,8 @@ class TMX:
        - "height" (from the <object> tag)
        - "rotation" (from the <object> tag)
        - "gid" (from the <object> tag)
+       - "id" - "gid" (from the <object> tag) localized so that 1 is the
+         first tile of the tileset, 2 is the second, and so on
        - "visible" (from the <object> tag)
        - All custom object properties
 
@@ -634,9 +635,21 @@ class TMX:
                         rotation = ochild.attrib.get("rotation")
                         if rotation is not None:
                             rotation = float(rotation)
+
                         gid = ochild.attrib.get("gid")
+                        id_ = None
                         if gid is not None:
                             gid = int(gid)
+
+                            # Find local ID
+                            diff = 0
+                            for firstgid in firstgids:
+                                if firstgid < gid:
+                                    diff = firstgid - 1
+                                else:
+                                    break
+                            id_ = max(0, gid - diff)
+
                         visible = ochild.attrib.get("visible")
                         if visible is not None:
                             visible = bool(int(visible))
@@ -644,7 +657,7 @@ class TMX:
                             "color": color, "opacity": opacity,
                             "offsetx": offsetx, "offsety": offsety, "x": x,
                             "y": y, "width": width, "height": height,
-                            "rotation": rotation, "gid": gid,
+                            "rotation": rotation, "gid": gid, "id": id_,
                             "visible": visible})
 
                         for pchild in ochild:
