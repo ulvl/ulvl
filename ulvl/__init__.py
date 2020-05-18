@@ -461,6 +461,9 @@ class TMX:
        - "id" - "gid" (from the <object> tag) localized so that 1 is the
          first tile of the tileset, 2 is the second, and so on
        - "visible" (from the <object> tag)
+       - "ellipse" - ``True`` if the TMX object has an <ellipse> tag
+       - "points" - A list of ``(x, y)`` coordinates if the TMX object
+         has a <polygon> or <polyline> tag (from the respective tag)
        - All custom object properties
 
        .. note::
@@ -664,6 +667,16 @@ class TMX:
                         for pchild in ochild:
                             if pchild.tag == "properties":
                                 meta.update(get_properties(pchild))
+                            elif pchild.tag == "ellipse":
+                                meta["ellipse"] = True
+                            elif pchild.tag in {"polygon", "polyline"}:
+                                points = pchild.attrib.get("points")
+                                if points:
+                                    pl = []
+                                    for p in points.split():
+                                        x, y = p.split(',')
+                                        pl.append((int(x), int(y)))
+                                    meta["points"] = pl
 
                         self.objects.append(LevelObject(otype, meta))
 

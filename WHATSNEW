@@ -11,6 +11,9 @@ information. This file is offered as-is, without any warranty.
 Misc changes:
 * TMX objects now include an "id" meta variable which is "gid" localized
   relative to the tileset the gid is in.
+* TMX objects now include an "ellipse" meta variable when an <ellipse>
+  tag is used in the TMX.
+* TMX polygon and polyline objects now include a "points" meta variable. 
 
 
 1.0
