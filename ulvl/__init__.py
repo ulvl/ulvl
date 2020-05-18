@@ -467,9 +467,10 @@ class TMX:
 
           Remember that a tile object's origin is in the bottom-center,
           unlike shape-based objects whose origin is in the top-left.
-          You can find out if an object is a tile object by checking the
-          respective level object's ``meta["gid"]`` after loading.  If
-          this value is not ``None``, the object is a tile object.
+          You can find out if an object is a tile object by checking
+          whether a value for ``"gid"`` is assigned to the level
+          object's meta variables dictionary.  If so, the object is a
+          tile object.
 
     .. attribute:: layers
 
