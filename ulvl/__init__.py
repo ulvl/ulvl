@@ -250,7 +250,7 @@ class JSL:
 
         self.meta = data.get("meta")
 
-        for k in data.get("objects", {}):
+        for k in data.setdefault("objects", {}):
             for o in data["objects"][k]:
                 obj = LevelObject(k, o)
                 self.objects.append(obj)
